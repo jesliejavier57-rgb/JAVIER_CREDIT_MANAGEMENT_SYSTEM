@@ -1,0 +1,5 @@
+target/
+app.db
+.idea/
+*.iml
+.vscode/
