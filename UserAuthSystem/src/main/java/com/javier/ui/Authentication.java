@@ -1,19 +1,33 @@
-package ui;
+package com.javier.ui;
 
-import dao.UserDao;
-import model.User;
+import com.javier.dao.UserDao;
+import com.javier.model.Role;
+import com.javier.model.User;
 
 import java.util.Optional;
 import java.util.Scanner;
 
 /**
- * Main menu: Register, Login, Exit.
+ * Startup screen: Register, Login, Exit. Also routes a logged-in user to the
+ * menu that matches their role. Contains no SQL; all data access goes through UserDao.
  */
-public class MainMenu {
+public class Authentication {
 
-    private final Scanner scanner = new Scanner(System.in);
-    private final UserDao userDao = new UserDao();
-    private final UserMenu userMenu = new UserMenu(scanner);
+    private final UserDao userDao;
+    private final Scanner scanner;
+
+    private final OwnerMenu ownerMenu;
+    private final StaffMenu staffMenu;
+    private final CustomerMenu customerMenu;
+
+    public Authentication(UserDao userDao, Scanner scanner) {
+        this.userDao = userDao;
+        this.scanner = scanner;
+        // The same UserDao and Scanner are handed to every menu.
+        this.ownerMenu = new OwnerMenu(userDao, scanner);
+        this.staffMenu = new StaffMenu(userDao, scanner);
+        this.customerMenu = new CustomerMenu(userDao, scanner);
+    }
 
     public void start() {
         boolean running = true;
@@ -56,20 +70,34 @@ public class MainMenu {
             return;
         }
 
-        System.out.print("Role (1 = TEACHER, 2 = STUDENT): ");
-        String role;
-        switch (scanner.nextLine().trim()) {
-            case "1" -> role = "TEACHER";
-            case "2" -> role = "STUDENT";
-            default -> {
-                System.out.println("Invalid role.");
-                return;
-            }
+        Role role = promptRole();
+        if (role == null) {
+            System.out.println("Invalid role.");
+            return;
         }
 
         if (userDao.register(username, password, role)) {
             System.out.println("Account created as " + role + " with status PENDING.");
         }
+    }
+
+    /** Lists every Role so adding a role to the enum automatically adds it here. */
+    private Role promptRole() {
+        Role[] roles = Role.values();
+        System.out.println("Select a role:");
+        for (int i = 0; i < roles.length; i++) {
+            System.out.println("  " + (i + 1) + ". " + roles[i]);
+        }
+        System.out.print("Role: ");
+        try {
+            int choice = Integer.parseInt(scanner.nextLine().trim());
+            if (choice >= 1 && choice <= roles.length) {
+                return roles[choice - 1];
+            }
+        } catch (NumberFormatException e) {
+            // fall through: not a number
+        }
+        return null;
     }
 
     private void login() {
@@ -81,9 +109,17 @@ public class MainMenu {
 
         Optional<User> user = userDao.login(username, password);
         if (user.isPresent()) {
-            userMenu.show(user.get());   // returns when the user logs out
+            routeToMenu(user.get());   // returns when the user logs out
         } else {
             System.out.println("Invalid username or password.");
+        }
+    }
+
+    private void routeToMenu(User user) {
+        switch (user.role()) {
+            case OWNER -> ownerMenu.show(user);
+            case STAFF -> staffMenu.show(user);
+            case CUSTOMER -> customerMenu.show(user);
         }
     }
 }

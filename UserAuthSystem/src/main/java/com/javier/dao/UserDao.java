@@ -1,6 +1,7 @@
-package dao;
+package com.javier.dao;
 
-import model.User;
+import com.javier.model.Role;
+import com.javier.model.User;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -34,13 +35,13 @@ public class UserDao {
     }
 
     /** Saves a new user. Status is always PENDING on registration. */
-    public boolean register(String username, String plainPassword, String role) {
-        String sql = "INSERT INTO users (username, password, roles, status) VALUES (?, ?, ?, 'PENDING')";
+    public boolean register(String username, String plainPassword, Role role) {
+        String sql = "INSERT INTO users (username, password_hash, role, status) VALUES (?, ?, ?, 'PENDING')";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, username);
             ps.setString(2, hashPassword(plainPassword));
-            ps.setString(3, role);
+            ps.setString(3, role.name());
             return ps.executeUpdate() == 1;
         } catch (SQLException e) {
             System.out.println("Registration failed: " + e.getMessage());
@@ -50,19 +51,19 @@ public class UserDao {
 
     /** Returns the user if the username and password match, otherwise empty. */
     public Optional<User> login(String username, String plainPassword) {
-        String sql = "SELECT id, username, password, roles, status FROM users WHERE username = ?";
+        String sql = "SELECT user_id, username, password_hash, role, status FROM users WHERE username = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, username);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    String stored = rs.getString("password");
+                    String stored = rs.getString("password_hash");
                     if (verifyPassword(plainPassword, stored)) {
                         return Optional.of(new User(
-                                rs.getInt("id"),
+                                rs.getInt("user_id"),
                                 rs.getString("username"),
                                 stored,
-                                rs.getString("roles"),
+                                Role.valueOf(rs.getString("role")),
                                 rs.getString("status")));
                     }
                 }
