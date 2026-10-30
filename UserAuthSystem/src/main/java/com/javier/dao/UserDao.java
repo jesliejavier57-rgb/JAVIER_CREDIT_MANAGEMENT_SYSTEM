@@ -101,6 +101,26 @@ public class UserDao {
         }
     }
 
+    /**
+     * Changes a user's role and status. Both values are converted to upper case
+     * before they reach the database. The table's CHECK constraints reject anything invalid.
+     *
+     * @return true if exactly one account was updated
+     */
+    public boolean updateUserRoleAndStatus(int userId, String newRole, String newStatus) {
+        String sql = "UPDATE users SET role = ?, status = ? WHERE user_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newRole.toUpperCase());
+            ps.setString(2, newStatus.toUpperCase());
+            ps.setInt(3, userId);
+            return ps.executeUpdate() == 1;
+        } catch (SQLException e) {
+            System.out.println("Update failed: " + e.getMessage());
+            return false;
+        }
+    }
+
     // ---------- helpers ----------
 
     /** Runs a SELECT that returns user rows. param may be null when the query has no ? placeholder. */
