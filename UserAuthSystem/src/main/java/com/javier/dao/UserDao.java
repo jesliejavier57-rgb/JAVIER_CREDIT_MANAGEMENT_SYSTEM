@@ -11,7 +11,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -59,12 +61,7 @@ public class UserDao {
                 if (rs.next()) {
                     String stored = rs.getString("password_hash");
                     if (verifyPassword(plainPassword, stored)) {
-                        return Optional.of(new User(
-                                rs.getInt("user_id"),
-                                rs.getString("username"),
-                                stored,
-                                Role.valueOf(rs.getString("role")),
-                                rs.getString("status")));
+                        return Optional.of(mapUser(rs));
                     }
                 }
             }
@@ -72,6 +69,66 @@ public class UserDao {
             System.out.println("Database error: " + e.getMessage());
         }
         return Optional.empty();
+    }
+
+    /** Every registered account, regardless of role or status. */
+    public List<User> getAllUsers() {
+        String sql = "SELECT user_id, username, password_hash, role, status FROM users ORDER BY user_id";
+        return queryUsers(sql, null);
+    }
+
+    /** Accounts still waiting for approval, across all roles. */
+    public List<User> getPendingUsers() {
+        String sql = "SELECT user_id, username, password_hash, role, status FROM users "
+                + "WHERE status = ? ORDER BY user_id";
+        return queryUsers(sql, "PENDING");
+    }
+
+    /**
+     * Changes a PENDING account to APPROVED.
+     *
+     * @return true only if a pending account with that ID existed and was updated
+     */
+    public boolean approveUser(int userId) {
+        String sql = "UPDATE users SET status = 'APPROVED' WHERE user_id = ? AND status = 'PENDING'";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            return ps.executeUpdate() == 1;
+        } catch (SQLException e) {
+            System.out.println("Approval failed: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // ---------- helpers ----------
+
+    /** Runs a SELECT that returns user rows. param may be null when the query has no ? placeholder. */
+    private List<User> queryUsers(String sql, String param) {
+        List<User> users = new ArrayList<>();
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            if (param != null) {
+                ps.setString(1, param);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    users.add(mapUser(rs));
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Database error: " + e.getMessage());
+        }
+        return users;
+    }
+
+    private static User mapUser(ResultSet rs) throws SQLException {
+        return new User(
+                rs.getInt("user_id"),
+                rs.getString("username"),
+                rs.getString("password_hash"),
+                Role.valueOf(rs.getString("role")),
+                rs.getString("status"));
     }
 
     // ---------- password helpers ----------

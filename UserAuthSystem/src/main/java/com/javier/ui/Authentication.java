@@ -16,7 +16,7 @@ public class Authentication {
     private final UserDao userDao;
     private final Scanner scanner;
 
-    private final OwnerMenu ownerMenu;
+    private final AdminMenu adminMenu;
     private final StaffMenu staffMenu;
     private final CustomerMenu customerMenu;
 
@@ -24,7 +24,7 @@ public class Authentication {
         this.userDao = userDao;
         this.scanner = scanner;
         // The same UserDao and Scanner are handed to every menu.
-        this.ownerMenu = new OwnerMenu(userDao, scanner);
+        this.adminMenu = new AdminMenu(userDao, scanner);
         this.staffMenu = new StaffMenu(userDao, scanner);
         this.customerMenu = new CustomerMenu(userDao, scanner);
     }
@@ -117,7 +117,7 @@ public class Authentication {
 
     private void routeToMenu(User user) {
         switch (user.role()) {
-            case OWNER -> ownerMenu.show(user);
+            case OWNER -> adminMenu.show(user);
             case STAFF -> staffMenu.show(user);
             case CUSTOMER -> customerMenu.show(user);
         }
